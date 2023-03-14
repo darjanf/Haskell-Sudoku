@@ -1,34 +1,27 @@
 cabal-version:      2.4
-name:               TicHaskToe
+name:               HaskellSudoku
 version:            0.1.0.0
 synopsis:           See README for more info
 tested-with:        GHC==8.10.7
 
-description:        A guided Tic-Tac-Toe project, designed as a companion to the first part of EMURGO Academy's Haskell course.
+description:        HaskellSudoku project created within the EMURGO Academy's Haskell course.
 homepage:           https://github.com/gitpod-io/template-haskell
 license:            MIT
 license-file:       LICENSE
-author:             Ian Burzynski
-maintainer:         23251244+iburzynski@users.noreply.github.com
+author:             Darjan Fikic
+maintainer:         Darjan Fikic
 
-category:           Example
+category:           Haskell Project
 extra-source-files:
     .hlint.yaml
     CHANGELOG.md
     README.md
 
-executable TicHaskToe
+executable HaskellSudoku
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
     other-modules:    A1
-                    , A2
-                    , A3
-                    , A4
-                    , A5
-                    , Sandbox
-                    , Playground
-                    , Hangman
 
     build-depends:
         base ^>=4.14.1.0
