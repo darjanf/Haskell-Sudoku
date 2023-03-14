@@ -1,6 +1,6 @@
 module Main where
 
-import A1
+import Board
 import Data.List
 import Data.Ord
 import Text.Printf
