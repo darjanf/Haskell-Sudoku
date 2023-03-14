@@ -29,6 +29,10 @@ calcNewRow board row =
     let 
         available = getAvailableSquareNumbers (reshapeBoard board) \\ row
     in do
+        print ("Board: " ++ show (reshapeBoard board))
+        print ("Row: " ++ show (row))
+        print ("GetAvailableSquareNumbers: " ++ show (getAvailableSquareNumbers (reshapeBoard board)))
+        print ("Available: " ++ show (available))
         random <- getRandomNumber available
         return (row ++ [random])
 
