@@ -7,7 +7,8 @@ import Data.List
 -- Type-Definitions
 type Row        = [Int]
 type Board      = [Row]
-type Square     = Int 
+type Square     = Int
+type Difficulty = Int
 
 genInitRow :: Row -> Int -> IO Row
 genInitRow rs 0      = return rs
@@ -123,3 +124,18 @@ genBoard = do
 
 initBoard :: IO Board
 initBoard = genBoard
+
+genQuizBoard :: Board -> Difficulty -> IO Board
+genQuizBoard b d
+    | d <= 1 = reduceBoardFields b 2
+    | d == 2 = b
+
+reduceBoardFields :: Board -> Int -> Board
+reduceBoardFields board _               = []
+reduceBoardFields [x] _                 = []
+reduceBoardFields (x:y:z:zs) number     = undefined
+
+reduceRowFields :: Row -> Int -> Row
+reduceRowFields board _         = []
+reduceRowFields [x] _         = []
+reduceRowFields board number    = undefined
