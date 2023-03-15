@@ -25,21 +25,29 @@ getRandomNumber available = do
     then return random 
     else getRandomNumber available
 
-calcNewRow :: Board -> Row -> IO Row
+calcNewRow :: Board -> Row -> IO (Maybe Row)
 calcNewRow board row =
+    --print ("-----------------> Start") >>
+    --print ("Board: "            ++ show board) >>
+    --print ("Row: "              ++ show row) >>
     getAvailableSquareNumbers board row >>= \sqNumbers ->
-    let columnNumbers   = getAvailableColumnNumbers board row 
-        available       = nub (sqNumbers ++ columnNumbers)
+    let columnNumbers   = getAvailableColumnNumbers board row
+        available       = filter (\x -> x `elem` columnNumbers) sqNumbers \\ row
     in
-        print ("-----------------> Start") >>
-        print ("Board: "            ++ show board) >>
-        print ("Row: "              ++ show row) >>
-        print ("sqNumbers: "        ++ show sqNumbers) >>
-        print ("columnNumbers: "    ++ show columnNumbers) >>
-        print ("available: "        ++ show available) >>
-        print ("<----------------- End")>>
-        getRandomNumber available >>= \random ->
-        return (row ++ [random])
+        --print ("availableSqNumbers: "        ++ show sqNumbers) >>
+        --print ("availableColumnNumbers: "    ++ show columnNumbers) >>
+        --print ("onlyAvailable: "        ++ show available) >>
+        --if length board == 3 then error "breakpoint!" else
+        if available /= [] then
+            --print ("Enough available numbers, select randomnumber next") >>
+            getRandomNumber available >>= \random ->
+            --print ("Choosed randomnumber: " ++ show random) >>
+            --print ("<----------------- End")>>
+            return (Just (row ++ [random]))
+        else
+            --print ("Not enough available numbers, return invalid row!") >>
+            --print ("<----------------- End")>>
+            return Nothing
 
 getFstSquareNumbers :: Board -> [Int]
 getFstSquareNumbers []  = []
@@ -57,8 +65,8 @@ getCurrent3BoardRows :: Board -> Int -> Board
 getCurrent3BoardRows [] _  = []
 getCurrent3BoardRows board boardLenght 
     | boardLenght <= 2  = fst (splitAt 3 board)
-    | boardLenght <= 5  = fst (splitAt 3 (fst (splitAt 3 board)))
-    | otherwise         = snd (splitAt 3 (fst (splitAt 3 board)))
+    | boardLenght <= 5  = fst (splitAt 3 (snd (splitAt 3 board)))
+    | otherwise         = snd (splitAt 3 (snd (splitAt 3 board)))
 
 getAvailableSquareNumbers :: Board -> Row -> IO [Int]
 getAvailableSquareNumbers [] _ = return [1..9]
@@ -70,10 +78,10 @@ getAvailableSquareNumbers board row =
         thrdSquare          = getThrdSquareNumbers current3BoardRows ++ snd (splitAt 6 row)
         lengthCurrentRow    = length row
     in
-        print ("current3BoardRows: " ++ show current3BoardRows) >>
-        print ("fstSquare: " ++ show fstSquare) >> 
-        print ("sndSquare: " ++ show sndSquare) >>
-        print ("thrdSquare: " ++ show thrdSquare) >>
+        --print ("current3BoardRows: " ++ show current3BoardRows) >>
+        --print ("fstSquare: " ++ show fstSquare) >> 
+        --print ("sndSquare: " ++ show sndSquare) >>
+        --print ("thrdSquare: " ++ show thrdSquare) >>
         if lengthCurrentRow <= 2 then return $ filter (`notElem` fstSquare)  [1..9]
             else if lengthCurrentRow <= 5 then return $ filter (`notElem` sndSquare)  [1..9]
                 else return $ filter (`notElem` thrdSquare) [1..9]
@@ -92,15 +100,18 @@ validateRow row = case row of
 
 genBoardRows :: Board -> Row -> IO Board
 genBoardRows board row =
-    if length board < 2 then 
-        if length row < 9 then do
-            candidateRow <- calcNewRow board row
-            genBoardRows board candidateRow
+    if length board < 9 then 
+        if length row < 9 then
+            calcNewRow board row >>= \candidateIORow ->
+            case candidateIORow of
+                Nothing -> 
+                    --print ("genBoardRows: Invalid Row. Retry with complete new Line!") >>
+                    genBoardRows board []
+                Just cr -> genBoardRows board cr
         else
             case validateRow row of
                 True  -> genBoardRows (board ++ [row]) []
                 False -> error "Invalid Row!"
-                    -- genBoardRows board []
     else 
         return board
 
