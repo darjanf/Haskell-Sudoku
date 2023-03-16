@@ -40,7 +40,9 @@ _BOTTOM_ = concat [" -", intercalate "---" _BOTTOM_EDGE_, "-"]
 
 showInts :: [Int] -> [String]
 showInts [] = []
-showInts (x:xs) = show x : showInts xs
+showInts (x:xs)
+    | x == 0     = " " : showInts xs
+    | otherwise  = show x : showInts xs
 
 prependRowIndices :: [String] -> [String]
 prependRowIndices s = zipWith (:) ['A'..] s
