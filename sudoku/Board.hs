@@ -32,37 +32,65 @@ genInitRow rs length = do
     then genInitRow rs length
     else genInitRow (r : rs) (length - 1)
 
-fillBoard :: Board -> IO Board
-fillBoard [] = fillBoard (replicate 9 $ replicate 9 0)
-fillBoard b
-    | isBoardFull b = return b
-    | otherwise     = fillBoardCells b 0 []
+fillBoard :: Maybe Board -> IO (Maybe Board)
+fillBoard Nothing = fillBoard (Just (replicate 9 $ replicate 9 0))
+fillBoard board = 
+    case board of
+        Nothing -> return Nothing
+        Just b -> 
+            if isBoardFull b then
+                return (Just b)
+            else fillBoardCells b 0 []
 
 isBoardFull :: Board -> Bool
 isBoardFull b
     | null (filter (\x -> elem 0 x) b) = True
     | otherwise                        = False
 
-fillBoardCells :: Board -> CellIndex -> NoCandidates -> IO Board
-fillBoardCells b 81 _        = return b
+calcRowIndex :: CellIndex -> RowIndex
+calcRowIndex cInx = div cInx 9
+
+calcColumnIndex :: CellIndex -> ColumnIndex
+calcColumnIndex cInx = mod cInx 9
+
+fillBoardCells :: Board -> CellIndex -> NoCandidates -> IO (Maybe Board)
+fillBoardCells b 81 _        = return (Just b)
 fillBoardCells b cinx noCand = 
-    let row       = div cinx 9
-        col       = mod cinx 9
-        cellValue = getCellValue b (row+1) (col+1)
-        emptyCell = cellValue == 0
+    let row                  = calcRowIndex cinx
+        col                  = calcColumnIndex cinx
+        cellValue            = getCellValue b (row+1) (col+1)
+        emptyCell            = cellValue == 0
+        availableNumbers     = [1..9] \\ noCand
     in
-        if emptyCell then 
-            getRandomNumber ([1..9] \\ noCand) >>= \random ->
-            let usedInRow     = isUsedInRow    b row random
-                usedInColumn  = isUsedInColumn b col random
-                usedInSquare  = isUsedInSquare b row col random
-                invalidRandom = usedInRow && usedInColumn && usedInSquare
-            in 
-                if invalidRandom then fillBoardCells b cinx (random:noCand)
-                else 
-                    let newBoard = setCellValue b (row+1) (col+1) random
-                    in
-                        fillBoardCells newBoard (cinx+1) []
+        if emptyCell then
+            if null availableNumbers then
+                return Nothing
+            else
+                getRandomNumber availableNumbers >>= \random ->
+                let usedInRow     = isUsedInRow    b row random
+                    usedInColumn  = isUsedInColumn b col random
+                    usedInSquare  = isUsedInSquare b row col random
+                    validRandom = (not usedInRow) && (not usedInColumn) && (not usedInSquare)
+                in 
+                    print ("----------> Start fillBoardCells")>>
+                    print ("Index: " ++ show cinx)>>
+                    print ("row: " ++ show row)>>
+                    print ("col: " ++ show col)>>
+                    print ("cellValue: " ++ show cellValue)>>
+                    print ("random: " ++ show random)>>
+                    print ("availableNumbers: " ++ show availableNumbers)>>
+                    print ("usedInRow: " ++ show usedInRow)>>
+                    print ("usedInColumn: " ++ show usedInColumn)>>
+                    print ("usedInSquare: " ++ show usedInSquare)>>
+                    print ("validRandom: " ++ show validRandom)>>
+                    print ("noCand: " ++ show noCand)>>
+                    print ("Board: " ++ show b)>>
+                    print ("<---------- End fillBoardCells")>>
+                    if validRandom then 
+                        let newBoard = setCellValue b (row+1) (col+1) random
+                        in fillBoardCells newBoard (cinx+1) []
+                    else 
+                        fillBoardCells b cinx (random:noCand)
         else 
             fillBoardCells b (cinx+1) []
 
@@ -215,7 +243,7 @@ getSquare b rIndex cIndex
     | rIndex < 9 && cIndex < 9  = getSquareByIndex b (6,6)
 
 getSquareByIndex :: Board -> (RowIndex, ColumnIndex) -> Square
-getSquareByIndex b (rIndex,cIndex) = concat square
+getSquareByIndex b (rIndex,cIndex) = trace ("square" ++ show square) (concat square)
     where
         rows  = take 3 $ snd (splitAt rIndex b)
         square = foldr (\x r -> (take 3 $ snd (splitAt cIndex x)) : r) [] rows
