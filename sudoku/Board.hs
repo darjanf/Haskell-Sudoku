@@ -35,8 +35,8 @@ genInitRow rs length = do
 fillBoard :: Board -> IO Board
 fillBoard [] = fillBoard (replicate 9 $ replicate 9 0)
 fillBoard b
-    | trace ("calling isBoardFull!") (isBoardFull b) = return b
-    | otherwise     = trace ("calling fillBoardCells!") (fillBoardCells b 0 [])
+    | isBoardFull b = return b
+    | otherwise     = fillBoardCells b 0 []
 
 isBoardFull :: Board -> Bool
 isBoardFull b
