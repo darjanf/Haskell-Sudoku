@@ -11,6 +11,10 @@ import Control.Monad
 main :: IO ()
 main =
     putStrLn "Welcome to Haskell Sudoku!" >>
-    initBoard >>= \fullBoard ->
-    genQuizBoard fullBoard >>= \quizBoard ->
-    printBoard quizBoard
+    --initBoard >>= \fullBoard ->
+    fillBoard Nothing >>= \mFullBoard ->
+        case mFullBoard of
+            Nothing -> error "Could not generate Board!"
+            Just fullBoard -> 
+                genQuizBoard fullBoard >>= \quizBoard ->
+                printBoard quizBoard

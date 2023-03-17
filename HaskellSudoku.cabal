@@ -25,10 +25,10 @@ executable HaskellSudoku
                     UI
 
     build-depends:
-        base ^>=4.14.1.0
-      , random,
-        mtl ^>=2.2.2,
-        containers ^>= 0.6.5.1,
+        base ,
+        random ,
+        mtl ,
+        containers ,
         ilist
 
     hs-source-dirs:   sudoku
