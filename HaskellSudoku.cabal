@@ -21,15 +21,18 @@ executable HaskellSudoku
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules:  Board ,
-                    UI
+    other-modules:  Board,
+                    QuizBoard,
+                    UI,
+                    PlayGame
 
     build-depends:
         base ,
         random ,
         mtl ,
         containers ,
-        ilist
+        ilist ,
+        split
 
     hs-source-dirs:   sudoku
     default-language: Haskell2010

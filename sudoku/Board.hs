@@ -2,28 +2,153 @@ module Board where
 
 import Control.Applicative ((<|>))
 import Control.Monad
+import Control.Monad.State
 import Data.List
 import Debug.Trace
 import System.Random
 
 -- Type-Definitions
-type RowIndex       = Int
-type ColumnIndex    = Int
-type CellIndex      = Int
-type Cell           = Int
-type Row            = [Cell]
-type Column         = [Cell]
-type Square         = [Cell]
-type Board          = [Row]
-type Difficulty     = Int
-type Attempts       = Int
-type Candidate      = Int
-type NoCandidates   = [Candidate] 
+type Board           = [Row]
+type Candidate       = Int
+type Cell            = Int
+type CellIndex       = Int
+type Column          = [Cell]
+type ColumnIndex     = Int
+type Difficulty      = Int
+type NoCandidates    = [Candidate]
+type Row             = [Cell]
+type RowIndex        = Int
+type SolutionCount   = Int
+type Square          = [Cell]
+type StatefulGame    = StateT Game IO ()
+type StatefulMaybe a = StateT BoardCreation Maybe a
+type UserInput       = (Int,Int,Int)
 
-initBoard :: IO Board
-initBoard = do
-    initRow <- genInitRow [] 9
-    genBoardRows [initRow] [] 30
+-- Data-Definitions
+data BoardCreation = MkBoard {
+                    bSuperFunction  :: StatefulMaybe Board,
+                    bInitBoard      :: Board, 
+                    bCurrentBoard   :: Board, 
+                    bCellIndex      :: CellIndex,
+                    bNoCandidates   :: NoCandidates
+                   }
+data Game          = MkGame {
+                    gInitGame       :: Board,
+                    gQuizGame    :: Board 
+                   }
+
+-- ************************************************************
+-- Main functions
+-- ************************************************************
+
+initBoard :: Maybe Board -> IO (Maybe Board)
+initBoard Nothing  = genInitRow [] 9 >>= \initRow -> 
+                     initBoard (Just (initRow : (replicate 8 $ replicate 9 0)))
+initBoard (Just b) = if isBoardFull b 
+                     then return (Just b)
+                     else
+                        let initState = MkBoard { 
+                                            bSuperFunction = fillBoardCells, 
+                                            bInitBoard = b, 
+                                            bCurrentBoard = b,
+                                            bNoCandidates = [],
+                                            bCellIndex = 0
+                                        }
+                            sResult = runStateT checkBoardSolutions initState
+                        in
+                            case sResult of
+                                Nothing      -> return Nothing
+                                Just (nB, _) -> return (Just nB)
+
+fillBoardCells :: StatefulMaybe Board
+fillBoardCells = do
+    game <- get
+    let cinx         = bCellIndex game
+        currentBoard = bCurrentBoard game
+        action
+            | cinx == 81 = return currentBoard
+            | otherwise  = solveBoard
+    action
+
+checkBoardSolutions :: StatefulMaybe Board
+checkBoardSolutions = do
+    game <- get
+    let cinx      = bCellIndex game
+        initBoard = bInitBoard game
+        quizBoard = bCurrentBoard game
+        action
+            | cinx == 81 = if (initBoard == quizBoard) 
+                           then fail "try to find other solutions" 
+                           else return quizBoard
+            | otherwise  = solveBoard
+    action
+
+-- ************************************************************
+-- Solver functions
+-- ************************************************************
+
+solveBoard :: StatefulMaybe Board
+solveBoard = do
+    game <- get
+    let superFunction       = bSuperFunction game
+        cinx                = bCellIndex game
+        noCand              = bNoCandidates game
+        initBoard           = bInitBoard game
+        currentBoard        = bCurrentBoard game
+        row                 = calcRowIndex cinx
+        col                 = calcColumnIndex cinx
+        cellValue           = getCellValue currentBoard (row+1) (col+1)
+        emptyCell           = cellValue == 0
+        availableNumbers    = [1..9] \\ noCand
+        action
+            | (not emptyCell) = do
+                g <- get
+                let newInx = (bCellIndex g) + 1
+                modify (\g -> g { bCellIndex = newInx })
+                superFunction
+            | emptyCell && (null availableNumbers) = fail "no solution found"
+            | otherwise                            =
+                let 
+                    random       = head availableNumbers
+                    usedInRow    = isUsedInRow    currentBoard row random
+                    usedInColumn = isUsedInColumn currentBoard col random
+                    usedInSquare = isUsedInSquare currentBoard row col random
+                    validRandom  = (not usedInRow) && (not usedInColumn) && (not usedInSquare)
+                in  
+                    if validRandom then
+                        let newBoard = setCellValue currentBoard (row+1) (col+1) random
+                            b1State = 
+                                MkBoard { 
+                                    bSuperFunction = superFunction, 
+                                    bInitBoard     = initBoard, 
+                                    bCurrentBoard     = newBoard,
+                                    bCellIndex     = cinx+1,
+                                    bNoCandidates  = []
+                                }
+                            b2State = 
+                                MkBoard { 
+                                    bSuperFunction = checkBoardSolutions, 
+                                    bInitBoard     = initBoard, 
+                                    bCurrentBoard     = currentBoard,
+                                    bCellIndex     = cinx,
+                                    bNoCandidates  = random:noCand
+                                }
+                            b1Result = runStateT checkBoardSolutions b1State
+                        in 
+                            case b1Result of 
+                                Just (board1, _) -> return board1
+                                Nothing          -> do
+                                    modify (\g -> g { bNoCandidates = random:noCand })
+                                    solveBoard
+
+                    else do
+                        modify (\g -> g { bNoCandidates = random:noCand })
+                        solveBoard
+    action
+
+-- ************************************************************
+-- Helper functions
+-- ************************************************************
 
 genInitRow :: Row -> Int -> IO Row
 genInitRow rs 0      = return rs
@@ -32,12 +157,6 @@ genInitRow rs length = do
     if r `elem` rs
     then genInitRow rs length
     else genInitRow (r : rs) (length - 1)
-
-fillBoard :: Maybe Board -> IO (Maybe Board)
-fillBoard Nothing  = 
-    genInitRow [] 9 >>= \initRow ->
-    fillBoard (Just (initRow : (replicate 8 $ replicate 9 0)))
-fillBoard (Just b) = if isBoardFull b then return (Just b) else return (fillBoardCells b 0 [])
 
 isBoardFull :: Board -> Bool
 isBoardFull b
@@ -49,48 +168,6 @@ calcRowIndex cInx = div cInx 9
 
 calcColumnIndex :: CellIndex -> ColumnIndex
 calcColumnIndex cInx = mod cInx 9
-
-fillBoardCells :: Board -> CellIndex -> NoCandidates -> Maybe Board
-fillBoardCells b 81 _                      = Just b
-fillBoardCells b cinx noCand
-    | (not emptyCell)                      = fillBoardCells b (cinx+1) []
-    | emptyCell && (null availableNumbers) = Nothing
-    | otherwise                            =
-        --getRandomNumber availableNumbers >>= \random ->
-        let random = head availableNumbers
-            usedInRow    = isUsedInRow    b row random
-            usedInColumn = isUsedInColumn b col random
-            usedInSquare = isUsedInSquare b row col random
-            validRandom  = (not usedInRow) && (not usedInColumn) && (not usedInSquare)
-        in 
-        {-
-            print ("----------> Start fillBoardCells")>>
-            print ("Index: " ++ show cinx)>>
-            print ("row: " ++ show row)>>
-            print ("col: " ++ show col)>>
-            print ("cellValue: " ++ show cellValue)>>
-            print ("random: " ++ show random)>>
-            print ("availableNumbers: " ++ show availableNumbers)>>
-            print ("usedInRow: " ++ show usedInRow)>>
-            print ("usedInColumn: " ++ show usedInColumn)>>
-            print ("usedInSquare: " ++ show usedInSquare)>>
-            print ("validRandom: " ++ show validRandom)>>
-            print ("noCand: " ++ show noCand)>>
-            print ("Board: " ++ show b)>>
-            print ("<---------- End fillBoardCells")>>
-          -}  
-            if validRandom then
-                let newBoard = setCellValue b (row+1) (col+1) random
-                in 
-                    fillBoardCells newBoard (cinx+1) [] <|> fillBoardCells b cinx (random:noCand)
-            else 
-                fillBoardCells b cinx (random:noCand)
-    where 
-        row                  = calcRowIndex cinx
-        col                  = calcColumnIndex cinx
-        cellValue            = getCellValue b (row+1) (col+1)
-        emptyCell            = cellValue == 0
-        availableNumbers     = [1..9] \\ noCand
 
 isUsedInRow :: Board -> RowIndex -> Candidate -> Bool
 isUsedInRow b row cand
@@ -107,66 +184,6 @@ isUsedInSquare b rIndex cIndex cand
     | (elem cand $ getSquare b rIndex cIndex)   = True
     | otherwise                                 = False
 
-genBoardRows :: Board -> Row -> Attempts -> IO Board
-genBoardRows board row 0        = error "Maximum Attempts reached! Could not generate Sudoku-Board!"
-genBoardRows board row attempts =
-    if length board < 9 then 
-        if length row < 9 then
-            calcNewRow board row >>= \candidateIORow ->
-            case candidateIORow of
-                Nothing -> 
-                    --print ("genBoardRows: Invalid Row. Retry with complete new Line!") >>
-                    genBoardRows board [] (attempts-1)
-                Just cr -> genBoardRows board cr attempts
-        else
-            case validateRow row of
-                True  -> genBoardRows (board ++ [row]) [] attempts
-                False -> error "Invalid Row!"
-    else 
-        return board
-
-calcNewRow :: Board -> Row -> IO (Maybe Row)
-calcNewRow board row =
-    --print ("-----------------> Start") >>
-    --print ("Board: "            ++ show board) >>
-    --print ("Row: "              ++ show row) >>
-    getAvailableSquareNumbers board row >>= \sqNumbers ->
-    let columnNumbers   = getAvailableColumnNumbers board row
-        available       = filter (\x -> x `elem` columnNumbers) sqNumbers \\ row
-    in
-        --print ("availableSqNumbers: "        ++ show sqNumbers) >>
-        --print ("availableColumnNumbers: "    ++ show columnNumbers) >>
-        --print ("onlyAvailable: "        ++ show available) >>
-        --if length board == 3 then error "breakpoint!" else
-        if available /= [] then
-            --print ("Enough available numbers, select randomnumber next") >>
-            getRandomNumber available >>= \random ->
-            --print ("Choosed randomnumber: " ++ show random) >>
-            --print ("<----------------- End")>>
-            return (Just (row ++ [random]))
-        else
-            --print ("Not enough available numbers, return invalid row!") >>
-            --print ("<----------------- End")>>
-            return Nothing
-
-getAvailableSquareNumbers :: Board -> Row -> IO [Int]
-getAvailableSquareNumbers [] _ = return [1..9]
-getAvailableSquareNumbers board row =
-    let 
-        current3BoardRows   = getCurrent3BoardRows board (length board)
-        fstSquare           = getFstSquareNumbers current3BoardRows ++ take 3 row
-        sndSquare           = getSndSquareNumbers current3BoardRows ++ take 3 (snd (splitAt 3 row))
-        thrdSquare          = getThrdSquareNumbers current3BoardRows ++ snd (splitAt 6 row)
-        lengthCurrentRow    = length row
-    in
-        --print ("current3BoardRows: " ++ show current3BoardRows) >>
-        --print ("fstSquare: " ++ show fstSquare) >> 
-        --print ("sndSquare: " ++ show sndSquare) >>
-        --print ("thrdSquare: " ++ show thrdSquare) >>
-        if lengthCurrentRow <= 2 then return $ filter (`notElem` fstSquare)  [1..9]
-            else if lengthCurrentRow <= 5 then return $ filter (`notElem` sndSquare)  [1..9]
-                else return $ filter (`notElem` thrdSquare) [1..9]
-
 getRandomNumber :: [Int] -> IO Int
 getRandomNumber []          = error "no available numbers"
 getRandomNumber available = do
@@ -174,37 +191,6 @@ getRandomNumber available = do
     if random `elem` available 
     then return random 
     else getRandomNumber available
-
-getFstSquareNumbers :: Board -> [Int]
-getFstSquareNumbers []  = []
-getFstSquareNumbers b   = foldr (\(x:y:z:zs) r -> x:y:z:r) [] b
-
-getSndSquareNumbers :: Board -> [Int]
-getSndSquareNumbers [] = []
-getSndSquareNumbers b = foldr (\(_:_:_:x:y:z:zs) r -> x:y:z:r) [] b
-
-getThrdSquareNumbers :: Board -> [Int]
-getThrdSquareNumbers [] = []
-getThrdSquareNumbers b = foldr (\(_:_:_:_:_:_:x:y:z:zs) r -> x:y:z:r) [] b
-
-getCurrent3BoardRows :: Board -> Int -> Board
-getCurrent3BoardRows [] _  = []
-getCurrent3BoardRows board boardLenght 
-    | boardLenght <= 2  = fst (splitAt 3 board)
-    | boardLenght <= 5  = fst (splitAt 3 (snd (splitAt 3 board)))
-    | otherwise         = snd (splitAt 3 (snd (splitAt 3 board)))
-
-getAvailableColumnNumbers :: Board -> Row -> [Int]
-getAvailableColumnNumbers [] _ = [1..9]
-getAvailableColumnNumbers b r = 
-    let lengthRow = length r 
-        unavailable = foldr (\x r -> head (snd (splitAt lengthRow x)) : r) [] b
-    in filter (`notElem` unavailable) [1..9]
-
-validateRow :: Row -> Bool
-validateRow row = case row of
-    []      -> True
-    (x:xs)  -> x `notElem` xs && validateRow xs
 
 getCellValue :: Board -> RowIndex -> ColumnIndex -> Cell
 getCellValue b row col = cell
