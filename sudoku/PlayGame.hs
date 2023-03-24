@@ -3,6 +3,7 @@
 module PlayGame where
 
 import Board
+import Control.Concurrent
 import Control.Monad
 import Control.Monad.State
 import Data.List
@@ -12,6 +13,10 @@ import QuizBoard
 import System.Random
 import Text.Printf
 import UI
+
+-- ************************************************************
+-- Main functions
+-- ************************************************************
 
 playGame :: StatefulGame
 playGame = do
@@ -24,7 +29,12 @@ playGame = do
             liftIO (printBoard $ gQuizGame game)
             userInput <- liftIO (getUserInput)
             procInput userInput
+            liftIO (threadDelay 2000000)
             playGame
+
+-- ************************************************************
+-- Helper functions
+-- ************************************************************
 
 procInput :: UserInput -> StatefulGame
 procInput (row,col,val) = do
@@ -45,6 +55,7 @@ procInput (row,col,val) = do
             | otherwise       = error "Input could not be processed!"
     action
 
+
 createGame :: Maybe Board -> Board -> Game
 createGame initBoard quizBoard = MkGame { gInitGame = fromJust initBoard, gQuizGame = quizBoard }
 
@@ -59,4 +70,4 @@ getUserInput = do
     return (row,col,val)
 
 finishGame :: IO ()
-finishGame = printf "You solved the Sudoku. Congratulations !!!\n"
+finishGame = printf "You solved the Sudoku. Congratulations !!!\n\n\n"

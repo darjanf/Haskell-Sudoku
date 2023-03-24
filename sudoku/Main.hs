@@ -14,8 +14,8 @@ import UI
 
 main :: IO ()
 main = do
-    hSetBuffering stdout NoBuffering
-    solvedBoard <- initBoard Nothing
-    quizBoard   <- genQuizBoard solvedBoard
-    runStateT playGame (createGame solvedBoard quizBoard)
+    hSetBuffering stdout NoBuffering                        -- output is written immediately
+    solvedBoard <- initBoard Nothing                        -- generate a full board
+    quizBoard   <- genQuizBoard solvedBoard                 -- generate a quiz board
+    runStateT playGame (createGame solvedBoard quizBoard)   -- play sudoku game
     return ()

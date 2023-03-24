@@ -6,9 +6,18 @@ import Control.Monad.State
 import Data.List
 import System.Random
 
+
+-- ************************************************************
+-- Main functions
+-- ************************************************************
+
 genQuizBoard :: Maybe Board -> IO (Board)
 genQuizBoard Nothing  = error "genQuizBoard: Invalid input!"
 genQuizBoard (Just b) = (removeNumbers b b 15)
+
+-- ************************************************************
+-- Solver functions
+-- ************************************************************
 
 removeNumbers :: Board -> Board -> Difficulty -> IO Board
 removeNumbers iB qB 0    = return qB
@@ -27,6 +36,10 @@ removeNumbers iB qB diff =
                 removeNumbers iB qB (diff-1)
     else 
         removeNumbers iB qB diff
+
+-- ************************************************************
+-- Helper functions
+-- ************************************************************
 
 isQuizSolveable :: Board -> Board -> IO Bool
 isQuizSolveable iB qB =

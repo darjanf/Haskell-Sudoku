@@ -44,7 +44,7 @@ data Game          = MkGame {
 initBoard :: Maybe Board -> IO (Maybe Board)
 initBoard Nothing  = genInitRow [] 9 >>= \initRow -> 
                      initBoard (Just (initRow : (replicate 8 $ replicate 9 0)))
-initBoard (Just b) = if isBoardFull b 
+initBoard (Just b) = if isBoardFull b
                      then return (Just b)
                      else
                         let initState = MkBoard { 
@@ -54,11 +54,11 @@ initBoard (Just b) = if isBoardFull b
                                             bNoCandidates = [],
                                             bCellIndex = 0
                                         }
-                            sResult = runStateT checkBoardSolutions initState
+                            sResult = runStateT fillBoardCells initState
                         in
                             case sResult of
-                                Nothing      -> return Nothing
-                                Just (nB, _) -> return (Just nB)
+                                Nothing      -> return Nothing      -- failed to generate board
+                                Just (nB, _) -> return (Just nB)    -- return generated board
 
 fillBoardCells :: StatefulMaybe Board
 fillBoardCells = do
@@ -66,8 +66,8 @@ fillBoardCells = do
     let cinx         = bCellIndex game
         currentBoard = bCurrentBoard game
         action
-            | cinx == 81 = return currentBoard
-            | otherwise  = solveBoard
+            | cinx == 81 = return currentBoard  -- recursion ends when field index is 81
+            | otherwise  = solveBoard           -- start new recursion
     action
 
 checkBoardSolutions :: StatefulMaybe Board
@@ -78,7 +78,7 @@ checkBoardSolutions = do
         quizBoard = bCurrentBoard game
         action
             | cinx == 81 = if (initBoard == quizBoard) 
-                           then fail "try to find other solutions" 
+                           then fail "try to find other solutions"
                            else return quizBoard
             | otherwise  = solveBoard
     action
@@ -101,7 +101,7 @@ solveBoard = do
         emptyCell           = cellValue == 0
         availableNumbers    = [1..9] \\ noCand
         action
-            | (not emptyCell) = do
+            | (not emptyCell) = do  -- cell is already filled, skip this cell
                 g <- get
                 let newInx = (bCellIndex g) + 1
                 modify (\g -> g { bCellIndex = newInx })
@@ -109,7 +109,7 @@ solveBoard = do
             | emptyCell && (null availableNumbers) = fail "no solution found"
             | otherwise                            =
                 let 
-                    random       = head availableNumbers
+                    random       = head availableNumbers -- get new candidate value for empty cell
                     usedInRow    = isUsedInRow    currentBoard row random
                     usedInColumn = isUsedInColumn currentBoard col random
                     usedInSquare = isUsedInSquare currentBoard row col random
@@ -121,19 +121,19 @@ solveBoard = do
                                 MkBoard { 
                                     bSuperFunction = superFunction, 
                                     bInitBoard     = initBoard, 
-                                    bCurrentBoard     = newBoard,
+                                    bCurrentBoard  = newBoard,
                                     bCellIndex     = cinx+1,
                                     bNoCandidates  = []
                                 }
                             b2State = 
                                 MkBoard { 
-                                    bSuperFunction = checkBoardSolutions, 
+                                    bSuperFunction = superFunction, 
                                     bInitBoard     = initBoard, 
-                                    bCurrentBoard     = currentBoard,
+                                    bCurrentBoard  = currentBoard,
                                     bCellIndex     = cinx,
                                     bNoCandidates  = random:noCand
                                 }
-                            b1Result = runStateT checkBoardSolutions b1State
+                            b1Result = runStateT superFunction b1State
                         in 
                             case b1Result of 
                                 Just (board1, _) -> return board1
