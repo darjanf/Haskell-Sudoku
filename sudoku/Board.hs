@@ -125,14 +125,6 @@ solveBoard = do
                                     bCellIndex     = cinx+1,
                                     bNoCandidates  = []
                                 }
-                            b2State = 
-                                MkBoard { 
-                                    bSuperFunction = superFunction, 
-                                    bInitBoard     = initBoard, 
-                                    bCurrentBoard  = currentBoard,
-                                    bCellIndex     = cinx,
-                                    bNoCandidates  = random:noCand
-                                }
                             b1Result = runStateT superFunction b1State
                         in 
                             case b1Result of 
